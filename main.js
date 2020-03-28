@@ -7,8 +7,7 @@ const client = new Client();
 
 
 const stop = "\n\n===============\nBalas pesan ini dengan *stop* untuk berhenti automasi Covid19"
-const penggunaMode = new Map();
-const penggunaHoax = new Map();
+const penggunaAksi = new Map();
 
 var server = http.createServer(function (req, res) {
     client.on('qr', async (qr) => {
@@ -39,63 +38,93 @@ var server = http.createServer(function (req, res) {
 
 client.on('message', async msg => {
     var kontak = await msg.getContact();
-    mode = penggunaMode.get(kontak.number) || "stop";
+    console.log("+" + kontak.number + " (" + kontak.pushname + ") - " + msg.body);
+
+    mode = penggunaAksi.get(kontak.number + "_mode");
+    if (mode == null) {
+        penggunaAksi.set(kontak.number + "_mode", "stop");
+        mode = "stop";
+    }
+    switch (msg.body.toLowerCase()) {
+        case "covid19":
+            if (mode.toLowerCase() == "covid19") return;
+            penggunaAksi.set(kontak.number + "_mode", "covid19");
+            mode = "covid19";
+            msg.reply(
+                "Hai, Selamat datang disistem automasi informasi Covid19. Sistem ini siap memberikanmu informasi terkini tentang musibah Covid19 yang melanda diseluruh Dunia.\n\nBalas dengan *hoax* untuk mendapatkan informasi klarifikasi hoax terbaru\n\n===============\n\nUntuk melihat informasi pasien positif diseluruh dunia, balas pesan ini dengan *positif*\n\nUntuk melihat informasi pasien sembuh diseluruh dunia, balas pesan ini dengan *sembuh*\n\n===============\n\nBalas pesan ini dengan *negara* atau *provinsi* untuk mendapatkan informasi spesifik negara atau provinsi yang ingin anda ketahui"
+            );
+            break;
+        case "stop":
+            if (mode.toLowerCase() == "stop") return;
+            penggunaAksi.set(kontak.number + "_mode", "stop");
+            mode = "stop";
+            msg.reply("Automasi dihentikan, untuk mengaktifkannya kembali, balas pesan ini dengan *covid19*");
+        default:
+            break;
+    }
+
     switch (mode.toLowerCase()) {
         case "covid19":
             switch (msg.body.toLowerCase()) {
                 case "hoax":
-                    penggunaMode.set(kontak.number, "hoax");
-                    penggunaHoax.set(kontak.number, 0);
-                    msg.reply("Anda memasuki mode automasi Informasi Klarifikasi hoax terbaru, Berita sedang dimuat..." + stop)
+                    resetSpam(kontak);
+                    penggunaAksi.set(kontak.number + "_mode", "hoax");
+                    penggunaAksi.set(kontak.number + "_hoax", 0);
+                    msg.reply("Anda memasuki mode automasi Informasi Klarifikasi hoax terbaru, Berita sedang dimuat..." + stop);
                     getHoax(msg, kontak.number);
                     break;
                 case "sembuh":
+                    resetSpam(kontak);
                     request("https://api.kawalcorona.com/sembuh/", { json: true }, (err, res, body) => {
                         if (err) {
                             msg.reply("Mohon maaf, sepertinya terjadi sesuatu, sistem gagal memuat data" + stop);
                             return console.log(err);
                         }
-                        msg.reply("Pasien Covid19 yang dinyatakan sembuh diseluruh dunia sebanyak " + body.value + stop);
+                        msg.reply("Pasien Covid19 yang dinyatakan sembuh diseluruh dunia sebanyak " + body.value + " orang" + stop);
                     });
                     break;
                 case "positif":
+                    resetSpam(kontak);
                     request("https://api.kawalcorona.com/positif/", { json: true }, (err, res, body) => {
                         if (err) {
                             msg.reply("Mohon maaf, sepertinya terjadi sesuatu, sistem gagal memuat data" + stop);
                             return console.log(err);
                         }
-                        msg.reply("Pasien Covid19 yang dinyatakan positif diseluruh dunia sebanyak " + body.value + stop);
+                        msg.reply("Pasien Covid19 yang dinyatakan positif diseluruh dunia sebanyak " + body.value + " orang" + stop);
                     });
                     break;
                 case "meninggal":
+                    resetSpam(kontak);
                     request("https://api.kawalcorona.com/meninggal/", { json: true }, (err, res, body) => {
                         if (err) {
                             msg.reply("Mohon maaf, sepertinya terjadi sesuatu, sistem gagal memuat data" + stop);
                             return console.log(err);
                         }
-                        msg.reply("Pasien Covid19 yang dinyatakan meninggal diseluruh dunia sebanyak " + body.value + stop);
+                        msg.reply("Pasien Covid19 yang dinyatakan meninggal diseluruh dunia sebanyak " + body.value + " orang" + stop);
                     });
                     break;
                 case "negara":
-                    penggunaMode.set(kontak.number, "negara");
-                    msg.reply("Anda memasuki mode automasi informasi Negara yang terserang wabah Covid19, balas pesan ini dengan negara mana yang ingin anda ketahui informasinya." + stop)
+                    resetSpam(kontak);
+                    penggunaAksi.set(kontak.number + "_mode", "negara");
+                    msg.reply("Anda memasuki mode automasi informasi Negara yang terserang wabah Covid19, balas pesan ini dengan negara mana yang ingin anda ketahui informasinya." + stop);
                     break;
                 case "provinsi":
-                    penggunaMode.set(kontak.number, "provinsi");
-                    msg.reply("Anda memasuki mode automasi informasi Provinsi Indonesia yang terserang wabah Covid19, balas pesan ini dengan provinsi mana yang ingin anda ketahui informasinya." + stop)
+                    resetSpam(kontak);
+                    penggunaAksi.set(kontak.number + "_mode", "provinsi");
+                    msg.reply("Anda memasuki mode automasi informasi Provinsi Indonesia yang terserang wabah Covid19, balas pesan ini dengan provinsi mana yang ingin anda ketahui informasinya." + stop);
                     break;
                 case "stop":
                     break;
                 case "covid19":
                     break;
                 default:
-                    msg.reply("Perintah tidak valid" + stop);
+                    tambahSpam(kontak, msg);
                     return;
-
             }
             break;
         case "negara":
             if (msg.body.toLowerCase() != "stop" && msg.body.toLowerCase() != "covid19") {
+                resetSpam(kontak);
                 request("https://api.kawalcorona.com/", { json: true }, (err, res, body) => {
                     if (err) {
                         msg.reply("Mohon maaf, sepertinya terjadi sesuatu, sistem gagal memuat data" + stop);
@@ -120,6 +149,7 @@ client.on('message', async msg => {
             break;
         case "provinsi":
             if (msg.body.toLowerCase() != "stop" && msg.body.toLowerCase() != "covid19") {
+                resetSpam(kontak);
                 request("https://api.kawalcorona.com/indonesia/provinsi", { json: true }, (err, res, body) => {
                     if (err) {
                         msg.reply("Mohon maaf, sepertinya terjadi sesuatu, sistem gagal memuat data" + stop);
@@ -142,13 +172,14 @@ client.on('message', async msg => {
             }
             break;
         case "hoax":
-            var page = penggunaHoax.get(kontak.number);
+            var page = penggunaAksi.get(kontak.number + "_hoax");
             if (page == null) page = 0;
             if (msg.body.toLowerCase().startsWith("cari")) {
-                penggunaHoax.set(kontak.number, 0);
+                resetSpam(kontak);
+                penggunaAksi.set(kontak.number + "_hoax", 0);
                 var cari = msg.body.substring("cari".length).trim();
                 if (cari.length == 0) {
-                    msg.reply("Masukan kata kunci setelah *Cari*, contoh *Cari telur ayam*")
+                    msg.reply("Masukan kata kunci setelah *Cari*, contoh *Cari telur ayam*");
                     return;
                 }
                 getHoax(msg, kontak.number, cari);
@@ -156,15 +187,17 @@ client.on('message', async msg => {
             }
             switch (msg.body.toLowerCase()) {
                 case "lanjut":
-                    penggunaHoax.set(kontak.number, page + 1);
+                    resetSpam(kontak);
+                    penggunaAksi.set(kontak.number + "_hoax", page + 1);
                     getHoax(msg, kontak.number);
                     break;
                 case "kembali":
+                    resetSpam(kontak);
                     if (page == 0) {
-                        msg.reply("Anda sudah berada di informasi awal")
+                        msg.reply("Anda sudah berada di informasi awal");
                         return;
                     }
-                    penggunaHoax.set(kontak.number, page - 1);
+                    penggunaAksi.set(kontak.number + "_hoax", page - 1);
                     getHoax(msg, kontak.number);
                     break;
                 case "stop":
@@ -172,32 +205,21 @@ client.on('message', async msg => {
                 case "covid19":
                     break;
                 default:
-                    msg.reply("Perintah tidak valid" + stop);
+                    tambahSpam(kontak, msg);
+                    return;
             }
             break;
         default:
-            break;
+            return;
     }
 
-    switch (msg.body.toLowerCase()) {
-        case "covid19":
-            if (mode.toLowerCase() == "covid19") return;
-            penggunaMode.set(kontak.number, "covid19");
-            msg.reply(
-                "Hai, Selamat datang disistem automasi informasi Covid19. Sistem ini siap memberikanmu informasi terkini tentang musibah Covid19 yang melanda diseluruh Dunia.\n\nBalas dengan *hoax* untuk mendapatkan informasi klarifikasi hoax terbaru\n\n===============\n\nUntuk melihat informasi pasien positif diseluruh dunia, balas pesan ini dengan *positif*\n\nUntuk melihat informasi pasien sembuh diseluruh dunia, balas pesan ini dengan *sembuh*\n\n===============\n\nBalas pesan ini dengan *negara* atau *provinsi* untuk mendapatkan informasi spesifik negara atau provinsi yang ingin anda ketahui"
-            );
-            break;
-        case "stop":
-            if (mode.toLowerCase() == "stop") return;
-            penggunaMode.set(kontak.number, "stop");
-            msg.reply("Automasi dihentikan, untuk mengaktifkannya kembali, balas pesan ini dengan *covid19*")
-        default:
-            break;
-    }
 });
 
 function getHoax(msg, nomor, cari = "corona") {
-    var page = penggunaHoax.get(nomor);
+    const pesan = "Balas *kembali* atau *lanjut* untuk menavigasi informasi.\nBalas dengan *Cari _JUDUL YANG DICARI_* untuk mencari informasi klarifikasi hoax yang anda inginkan.";
+    var output = "Informasi Klarifikasi Hoax\n================\n\n";
+
+    var page = penggunaAksi.get(nomor + "_hoax");
     if (page == null) page = 0;
     request("https://turnbackhoax.id/wp-json/wp/v2/posts?search=" + cari + "&per_page=3&offset=" + (3 * page) + "&_fields=title,link",
         { json: true },
@@ -206,10 +228,12 @@ function getHoax(msg, nomor, cari = "corona") {
                 msg.reply("Mohon maaf, sepertinya terjadi sesuatu, sistem gagal memuat data" + stop);
                 return console.log(err);
             }
-            var output = "Informasi Klarifikasi Hoax\n================\n\n";
-            if (cari != "corona") output == "Hasil pencarian :\n" + cari + "\n================\n\n"
+            if (cari != "corona") {
+                output = "*Hasil pencarian :*\n_" + cari + "_\n================\n\n";
+            }
+
             if (body.length == 0) {
-                msg.reply("Sepertinya informasi klarifikasi yang anda maksud belum tersedia.")
+                msg.reply("Sepertinya informasi klarifikasi yang anda maksud belum tersedia.");
                 return;
             }
             for (let i = 0; i < body.length; i++) {
@@ -217,9 +241,25 @@ function getHoax(msg, nomor, cari = "corona") {
                 if (i < body.length - 1) output += "---------------\n\n";
             }
 
-            var pesan = "Balas *kembali* atau *lanjut* untuk menavigasi informasi.\nBalas dengan *cari _JUDUL YANG DICARI_* untuk mencari informasi klarifikasi hoax yang anda inginkan.";
             msg.reply(output + pesan + stop);
         });
+}
+
+function resetSpam(kontak) {
+    penggunaAksi.set(kontak.number + "_spam", 0);
+}
+function tambahSpam(kontak, msg) {
+    var spam = penggunaAksi.get(kontak.number + "_spam");
+    if (spam == null) spam = 0;
+    console.log(spam);
+    if (spam >= 3) {
+        penggunaAksi.set(kontak.number + "_mode", "stop");
+        msg.reply("Batas invalid tercapai, *Mohon baca lebih teliti informasi yang diberikan, setiap informasi memiliki _perintah_ tersendiri*\n\n_Untuk menghindari spam berlebih automasi covid19 dimatikan._");
+        resetSpam(kontak);
+        return;
+    }
+    penggunaAksi.set(kontak.number + "_spam", spam + 1);
+    msg.reply("Perintah tidak valid" + stop);
 }
 
 client.initialize();
