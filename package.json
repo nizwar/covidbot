@@ -1,0 +1,25 @@
+{
+  "name": "covidbot",
+  "version": "1.0.0",
+  "description": "BOT informasi Covid dari KawalCovid dan TurnbackHoax",
+  "main": "main.js",
+  "dependencies": {
+    "qrcode": "^1.4.4",
+    "request": "^2.88.2",
+    "whatsapp-web.js": "^1.2.5"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nizwar/covidbot.git"
+  },
+  "author": "Mochamad Nizwar Syafuan",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nizwar/covidbot/issues"
+  },
+  "homepage": "https://github.com/nizwar/covidbot#readme"
+}
