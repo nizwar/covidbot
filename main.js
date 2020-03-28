@@ -223,4 +223,4 @@ function getHoax(msg, nomor, cari = "corona") {
 }
 
 client.initialize();
-server.listen(80);
+server.listen(3000);
